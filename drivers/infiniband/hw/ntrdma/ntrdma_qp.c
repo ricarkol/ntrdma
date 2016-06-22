@@ -45,6 +45,22 @@
 #include "ntrdma_cq.h"
 #include "ntrdma_zip.h"
 
+static void abh_time_begin(ktime_t *t, u32 m)
+{
+	ktime_t n = ktime_get();
+	/*pr_debug("begin %u\n", m);*/
+	for (; m; --m)
+		*t = ktime_sub(*t, n);
+}
+
+static void abh_time_end(ktime_t *t, u32 m)
+{
+	ktime_t n = ktime_get();
+	/*pr_debug("end %u\n", m);*/
+	for (; m; --m)
+		*t = ktime_add(*t, n);
+}
+
 #define NTRDMA_QP_BATCH_SIZE 0x10
 
 struct ntrdma_qp_cmd_cb {
@@ -308,6 +324,10 @@ int ntrdma_qp_init(struct ntrdma_qp *qp, struct ntrdma_dev *dev,
 		     ntrdma_qp_work_cb,
 		     to_ptrhld(qp));
 
+	/* ABH: time in user space */
+	qp->abh_time.tv64 = 0;
+	qp->abh_count = 0;
+
 	return 0;
 
 	//ntrdma_cq_del_send_qp(qp->send_cq, qp);
@@ -347,6 +367,10 @@ void ntrdma_qp_deinit(struct ntrdma_qp *qp)
 	struct ntrdma_dev *dev;
 
 	dev = ntrdma_qp_dev(qp);
+
+	/* ABH: time in user space */
+	ntrdma_dbg(dev, "abh time %lldns\n", ktime_to_ns(qp->abh_time));
+	ntrdma_dbg(dev, "abh count %lld\n", qp->abh_count);
 
 	ntrdma_cq_del_poll(qp->send_cq, &qp->send_poll);
 	ntrdma_cq_del_poll(qp->recv_cq, &qp->recv_poll);
@@ -1036,6 +1060,8 @@ static void ntrdma_qp_recv_cons_get(struct ntrdma_qp *qp,
 static void ntrdma_qp_recv_cons_put(struct ntrdma_qp *qp,
 				    u32 pos, u32 base)
 {
+	/* ABH: this is where recv work requests are completed */
+	abh_time_begin(&qp->abh_time, pos + base - qp->recv_cons);
 	qp->recv_cons = ntrdma_ring_update(pos, base, qp->recv_cap);
 }
 
@@ -1095,6 +1121,9 @@ void ntrdma_qp_send_post_get(struct ntrdma_qp *qp,
 void ntrdma_qp_send_post_put(struct ntrdma_qp *qp,
 			     u32 pos, u32 base)
 {
+	/* ABH: this is where new send work requests are posted */
+	abh_time_end(&qp->abh_time, pos + base - qp->send_post);
+	qp->abh_count += pos + base - qp->send_post;
 	qp->send_post = ntrdma_ring_update(pos, base, qp->send_cap);
 }
 

@@ -34,6 +34,7 @@
 #define NTRDMA_QP_H
 
 #include <rdma/ib_verbs.h>
+#include <linux/ktime.h>
 
 #include "ntrdma_res.h"
 
@@ -154,6 +155,9 @@ struct ntrdma_qp {
 	struct mutex			recv_cmpl_lock;
 
 	struct tasklet_struct		send_work;
+
+	ktime_t abh_time;
+	s64 abh_count;
 };
 
 #define ntrdma_qp_dev(__qp) (ntrdma_res_dev(&(__qp)->res))
