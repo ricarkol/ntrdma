@@ -30,6 +30,7 @@
  * SOFTWARE.
  */
 
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 
@@ -262,14 +263,18 @@ static int ntc_tcp_send(struct socket *sock, void *buf, size_t len)
 	struct kvec iov;
 	int rc;
 
+	pr_info("%s %d", __FUNCTION__, __LINE__);
+
 	if (!sock)
 		return -EIO;
+	pr_info("%s %d", __FUNCTION__, __LINE__);
 
 	while (len > 0) {
 		memset(&msg, 0, sizeof(msg));
 		iov.iov_base = buf;
 		iov.iov_len = len;
 
+	        pr_info("%s %d", __FUNCTION__, __LINE__);
 		rc = kernel_sendmsg(sock, &msg, &iov, 1, len);
 		if (rc < 0)
 			return rc;
@@ -287,8 +292,10 @@ static int ntc_tcp_recv(struct socket *sock, void *buf, size_t len)
 	struct kvec iov;
 	int rc;
 
+	pr_info("%s %d", __FUNCTION__, __LINE__);
 	if (!sock)
 		return -EIO;
+	pr_info("%s %d", __FUNCTION__, __LINE__);
 
 	while (len > 0) {
 		memset(&msg, 0, sizeof(msg));
@@ -314,6 +321,7 @@ static int ntc_tcp_send_msg(struct ntc_tcp_dev *dev,
 	void *src;
 	int rc;
 
+	pr_info("%s %d", __FUNCTION__, __LINE__);
 	msg.magic_start = NTC_TCP_MAGIC_MSG;
 	msg.dst = op->dst;
 	msg.len = op->len;
@@ -322,15 +330,18 @@ static int ntc_tcp_send_msg(struct ntc_tcp_dev *dev,
 	rc = ntc_tcp_send(sock, &msg, sizeof(msg));
 	if (rc)
 		return rc;
+pr_info("%s %d", __FUNCTION__, __LINE__);
 
 	if (!op->len)
 		return 0;
 
+	pr_info("%s %d", __FUNCTION__, __LINE__);
 	if (op->imm)
 		src = &op->src;
 	else
 		src = (void *)(unsigned long)op->src;
 
+	pr_info("%s %d", __FUNCTION__, __LINE__);
 	return ntc_tcp_send(sock, src, op->len);
 }
 
@@ -341,22 +352,27 @@ static int ntc_tcp_recv_msg(struct ntc_tcp_dev *dev)
 	void *dst;
 	int rc;
 
+	pr_info("%s %d", __FUNCTION__, __LINE__);
 	rc = ntc_tcp_recv(sock, &msg, sizeof(msg));
 	if (rc)
 		return rc;
 
+	pr_info("%s %d", __FUNCTION__, __LINE__);
 	if (msg.magic_start != NTC_TCP_MAGIC_MSG)
 		return -EIO;
 	if (msg.magic_end != NTC_TCP_MAGIC_MSG)
 		return -EIO;
+	pr_info("%s %d", __FUNCTION__, __LINE__);
 
 	if (!msg.len) {
 		ntc_ctx_signal(&dev->ntc);
 		return 0;
 	}
 
+	pr_info("%s %d", __FUNCTION__, __LINE__);
 	dst = (void *)(unsigned long)msg.dst;
 
+	pr_info("%s %d", __FUNCTION__, __LINE__);
 	return ntc_tcp_recv(sock, dst, msg.len);
 }
 
@@ -376,8 +392,10 @@ static int ntc_tcp_hello(struct ntc_tcp_dev *dev, struct socket *sock)
 	size_t in_size = 0, out_size = 0;
 	ssize_t next_size;
 	int rc = 0, phase = 0;
+	pr_info("%s %d", __FUNCTION__, __LINE__);
 
 	for (;;) {
+	pr_info("%s %d", __FUNCTION__, __LINE__);
 		dev_dbg(&dev->ntc.dev, "begin phase %d\n", phase);
 
 		dev_dbg(&dev->ntc.dev, "phase %d in_size %#zx out_size %#zx\n",
@@ -389,6 +407,7 @@ static int ntc_tcp_hello(struct ntc_tcp_dev *dev, struct socket *sock)
 			rc = next_size;
 			break;
 		}
+		pr_info("%s %d", __FUNCTION__, __LINE__);
 
 		dev_dbg(&dev->ntc.dev, "phase %d next_size %#zx\n",
 			phase, next_size);
@@ -403,6 +422,7 @@ static int ntc_tcp_hello(struct ntc_tcp_dev *dev, struct socket *sock)
 		msg.data_size = out_size;
 		msg.next_size = next_size;
 
+		pr_info("%s %d", __FUNCTION__, __LINE__);
 		rc = ntc_tcp_send(sock, &msg, sizeof(msg));
 		if (rc)
 			break;
@@ -423,6 +443,7 @@ static int ntc_tcp_hello(struct ntc_tcp_dev *dev, struct socket *sock)
 		dev_dbg(&dev->ntc.dev, "phase %d+1 validate msg\n",
 			phase);
 
+		pr_info("%s %d", __FUNCTION__, __LINE__);
 		if (msg.magic != NTC_TCP_HELLO_MAGIC ||
 		    msg.phase != phase) {
 			rc = -EINVAL;
@@ -460,6 +481,7 @@ static int ntc_tcp_hello(struct ntc_tcp_dev *dev, struct socket *sock)
 		if (rc)
 			break;
 
+		pr_info("%s %d", __FUNCTION__, __LINE__);
 		dev_dbg(&dev->ntc.dev, "next phase %d+1\n", phase);
 
 		++phase;
@@ -480,6 +502,7 @@ static int ntc_tcp_process(struct ntc_tcp_dev *dev,
 	if (rc)
 		return rc;
 
+		pr_info("%s %d", __FUNCTION__, __LINE__);
 	dev->sock = sock;
 	ntc_ctx_enable(&dev->ntc);
 
@@ -504,6 +527,7 @@ static void ntc_tcp_req_work(struct work_struct *ws)
 	struct ntc_tcp_op *op, *next;
 	unsigned long irqflags;
 
+		pr_info("%s %d", __FUNCTION__, __LINE__);
 	spin_lock_irqsave(&dev->op_lock, irqflags);
 	list_replace_init(&dev->op_list, &op_list);
 	spin_unlock_irqrestore(&dev->op_lock, irqflags);
@@ -637,6 +661,7 @@ static int ntc_tcp_link_enable(struct ntc_dev *ntc)
 {
 	struct ntc_tcp_dev *dev = ntc_tcp_down_cast(ntc);
 
+		pr_info("%s %d", __FUNCTION__, __LINE__);
 	wake_up_process(dev->task);
 
 	return 0;
@@ -647,8 +672,10 @@ static int ntc_tcp_link_disable(struct ntc_dev *ntc)
 	struct ntc_tcp_dev *dev = ntc_tcp_down_cast(ntc);
 	struct socket *sock = dev->sock;
 
+		pr_info("%s %d", __FUNCTION__, __LINE__);
 	if (sock)
 		kernel_sock_shutdown(sock, SHUT_RDWR);
+		pr_info("%s %d", __FUNCTION__, __LINE__);
 
 	return 0;
 }
@@ -664,6 +691,7 @@ static void *ntc_tcp_req_create(struct ntc_dev *ntc)
 {
 	struct list_head *op_list;
 
+		pr_info("%s %d", __FUNCTION__, __LINE__);
 	op_list = kmalloc(sizeof(*op_list), GFP_ATOMIC);
 	if (op_list)
 		INIT_LIST_HEAD(op_list);
@@ -676,6 +704,7 @@ static void ntc_tcp_req_cancel(struct ntc_dev *ntc, void *req)
 	struct list_head *op_list = req;
 	struct ntc_tcp_op *op, *next;
 
+		pr_info("%s %d", __FUNCTION__, __LINE__);
 	list_for_each_entry_safe(op, next, op_list, entry)
 		kfree(op);
 
@@ -688,6 +717,7 @@ static int ntc_tcp_req_submit(struct ntc_dev *ntc, void *req)
 	struct list_head *op_list = req;
 	unsigned long irqflags;
 
+		pr_info("%s %d", __FUNCTION__, __LINE__);
 	spin_lock_irqsave(&dev->op_lock, irqflags);
 	list_splice_tail(op_list, &dev->op_list);
 	spin_unlock_irqrestore(&dev->op_lock, irqflags);
@@ -713,6 +743,7 @@ static int ntc_tcp_req_memcpy(struct ntc_dev *ntc, void *req,
 	if (!op)
 		return -ENOMEM;
 
+		pr_info("%s %d", __FUNCTION__, __LINE__);
 	op->imm = false;
 	op->dst = dst;
 	op->src = src;
@@ -736,6 +767,7 @@ static int ntc_tcp_req_imm32(struct ntc_dev *ntc, void *req,
 	if (!op)
 		return -ENOMEM;
 
+		pr_info("%s %d", __FUNCTION__, __LINE__);
 	op->imm = true;
 	op->dst = dst;
 	op->src = val;
@@ -765,6 +797,7 @@ static int ntc_tcp_req_imm64(struct ntc_dev *ntc, void *req,
 	op->len = sizeof(val);
 	op->cb = cb;
 	op->cb_ctx = cb_ctx;
+pr_info("%s %d", __FUNCTION__, __LINE__);
 
 	list_add_tail(&op->entry, op_list);
 
